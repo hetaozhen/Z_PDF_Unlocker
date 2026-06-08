@@ -192,6 +192,12 @@ document.addEventListener('DOMContentLoaded', () => {
         return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
     }
 
+    function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
     // 渲染待解密队列列表
     function renderQueue() {
         fileList.innerHTML = '';
@@ -211,13 +217,15 @@ document.addEventListener('DOMContentLoaded', () => {
             const li = document.createElement('li');
             li.className = 'file-item';
             
+            const safeName = escapeHtml(file.name);
+            
             li.innerHTML = `
                 <div class="file-info">
                     <div class="file-icon-wrapper">
                         <i data-lucide="file-text"></i>
                     </div>
                     <div class="file-details">
-                        <span class="file-name" title="${file.name}">${file.name}</span>
+                        <span class="file-name" title="${safeName}">${safeName}</span>
                         <div class="file-meta">
                             <span>大小: ${formatBytes(file.size)}</span>
                         </div>

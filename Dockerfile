@@ -8,10 +8,7 @@ WORKDIR /app
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
-# 安装系统工具
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    && rm -rf /var/lib/apt/lists/*
+# 移除 build-essential 等不必要的编译工具，因为我们依赖的库都有预编译的 wheel 包
 
 # 复制依赖定义并安装
 COPY requirements.txt .

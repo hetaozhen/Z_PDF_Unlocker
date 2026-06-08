@@ -9,7 +9,7 @@ import webbrowser
 import argparse
 import socket
 import pypdf
-from flask import Flask, jsonify, request, send_file, render_template
+from flask import Flask, jsonify, request, send_file, render_template, session
 
 # 跨平台非阻塞键盘输入读取
 if sys.platform.startswith('win'):
@@ -64,39 +64,47 @@ static_dir = get_resource_path('static')
 template_dir = get_resource_path('templates')
 app = Flask(__name__, static_folder=static_dir, template_folder=template_dir)
 app.secret_key = uuid.uuid4().hex
+app.config['MAX_CONTENT_LENGTH'] = 500 * 1024 * 1024  # 500MB 上传限制
 
 # 局域网访问密码 (优先从环境变量获取，便于 Docker 部署时进行安全保护)
-LAN_PASSWORD = os.getenv('LAN_PASSWORD')
-if not LAN_PASSWORD:
-    LAN_PASSWORD = None
+LAN_PASSWORD = os.getenv('LAN_PASSWORD') or None
 FAILED_ATTEMPTS = 0
 LOCK_UNTIL = 0.0
+RATE_LIMIT_LOCK = threading.Lock()
 
 # 内存下载缓存，结构：{ download_id: { 'data': bytes, 'filename': str, 'mimetype': str, 'timestamp': float } }
 DOWNLOAD_CACHE = {}
+CACHE_LOCK = threading.Lock()
 
 def cleanup_cache_loop():
     """后台垃圾回收线程：每隔 60 秒清理一次缓存，删除创建时间超过 5 分钟的文件对象"""
     while True:
         time.sleep(60)
         now = time.time()
-        expired_keys = [k for k, v in DOWNLOAD_CACHE.items() if now - v['timestamp'] > 300]
-        for k in expired_keys:
-            DOWNLOAD_CACHE.pop(k, None)
+        with CACHE_LOCK:
+            expired_keys = [k for k, v in DOWNLOAD_CACHE.items() if now - v['timestamp'] > 300]
+            for k in expired_keys:
+                DOWNLOAD_CACHE.pop(k, None)
 
 # 启动后台守护线程
 cleanup_thread = threading.Thread(target=cleanup_cache_loop, daemon=True)
 cleanup_thread.start()
+
+def check_auth():
+    """统一检查局域网访问权限"""
+    is_local = request.remote_addr in ('127.0.0.1', '::1')
+    if LAN_PASSWORD and not is_local:
+        if not session.get('authenticated'):
+            return False
+    return True
 
 @app.route('/')
 def index():
     is_local = request.remote_addr in ('127.0.0.1', '::1')
     
     # 局域网访问且未登录，提示验证输入密码
-    if LAN_PASSWORD and not is_local:
-        from flask import session
-        if not session.get('authenticated'):
-            return render_template('login.html')
+    if not check_auth():
+        return render_template('login.html')
             
     return render_template('index.html', is_local=is_local, mode="LAN" if LAN_PASSWORD else "LOCAL")
 
@@ -104,26 +112,29 @@ def index():
 def login():
     global FAILED_ATTEMPTS, LOCK_UNTIL
     now = time.time()
-    if now < LOCK_UNTIL:
-        remaining = int(LOCK_UNTIL - now)
-        return jsonify({'success': False, 'error': f'尝试次数过多，请在 {remaining} 秒后再试。'}), 429
+    
+    with RATE_LIMIT_LOCK:
+        if now < LOCK_UNTIL:
+            remaining = int(LOCK_UNTIL - now)
+            return jsonify({'success': False, 'error': f'尝试次数过多，请在 {remaining} 秒后再试。'}), 429
         
     data = request.get_json() or {}
     pwd = data.get('password', '')
     
     if pwd == LAN_PASSWORD:
-        FAILED_ATTEMPTS = 0
-        from flask import session
+        with RATE_LIMIT_LOCK:
+            FAILED_ATTEMPTS = 0
         session['authenticated'] = True
         return jsonify({'success': True})
     else:
-        FAILED_ATTEMPTS += 1
         # 延迟防暴破
         time.sleep(1.0)
-        if FAILED_ATTEMPTS >= 5:
-            LOCK_UNTIL = time.time() + 30
-            return jsonify({'success': False, 'error': '密码错误次数过多，锁定 30 秒。'}), 429
-        return jsonify({'success': False, 'error': f'密码错误，还可尝试 {5 - FAILED_ATTEMPTS} 次。'})
+        with RATE_LIMIT_LOCK:
+            FAILED_ATTEMPTS += 1
+            if FAILED_ATTEMPTS >= 5:
+                LOCK_UNTIL = time.time() + 30
+                return jsonify({'success': False, 'error': '密码错误次数过多，锁定 30 秒。'}), 429
+            return jsonify({'success': False, 'error': f'密码错误，还可尝试 {5 - FAILED_ATTEMPTS} 次。'})
 
 @app.route('/favicon.ico')
 def favicon():
@@ -131,6 +142,9 @@ def favicon():
 
 @app.route('/api/unlock', methods=['POST'])
 def unlock_files():
+    if not check_auth():
+        return jsonify({'success': False, 'error': '未认证，请先登录'}), 401
+        
     password = request.form.get('password', '')
     uploaded_files = request.files.getlist('files')
     
@@ -158,12 +172,13 @@ def unlock_files():
             if not reader.is_encrypted:
                 out_filename = base_name[:-4] + '_unlocked.pdf'
                 download_id = str(uuid.uuid4())
-                DOWNLOAD_CACHE[download_id] = {
-                    'data': in_bytes,
-                    'filename': out_filename,
-                    'mimetype': 'application/pdf',
-                    'timestamp': time.time()
-                }
+                with CACHE_LOCK:
+                    DOWNLOAD_CACHE[download_id] = {
+                        'data': in_bytes,
+                        'filename': out_filename,
+                        'mimetype': 'application/pdf',
+                        'timestamp': time.time()
+                    }
                 return jsonify({
                     'success': True,
                     'download_url': f'/api/download/{download_id}',
@@ -185,12 +200,13 @@ def unlock_files():
             
             out_filename = base_name[:-4] + '_unlocked.pdf'
             download_id = str(uuid.uuid4())
-            DOWNLOAD_CACHE[download_id] = {
-                'data': out_bytes,
-                'filename': out_filename,
-                'mimetype': 'application/pdf',
-                'timestamp': time.time()
-            }
+            with CACHE_LOCK:
+                DOWNLOAD_CACHE[download_id] = {
+                    'data': out_bytes,
+                    'filename': out_filename,
+                    'mimetype': 'application/pdf',
+                    'timestamp': time.time()
+                }
             return jsonify({
                 'success': True,
                 'download_url': f'/api/download/{download_id}',
@@ -285,12 +301,13 @@ def unlock_files():
             
         zip_bytes = zip_buffer.getvalue()
         download_id = str(uuid.uuid4())
-        DOWNLOAD_CACHE[download_id] = {
-            'data': zip_bytes,
-            'filename': 'unlocked_pdfs.zip',
-            'mimetype': 'application/zip',
-            'timestamp': time.time()
-        }
+        with CACHE_LOCK:
+            DOWNLOAD_CACHE[download_id] = {
+                'data': zip_bytes,
+                'filename': 'unlocked_pdfs.zip',
+                'mimetype': 'application/zip',
+                'timestamp': time.time()
+            }
         return jsonify({
             'success': True,
             'download_url': f'/api/download/{download_id}',
@@ -303,7 +320,11 @@ def download_file(download_id):
     通过 HTTP GET 请求下载解密好的文件。
     这种方式可以完美适配 IDM 等下载工具的多线程二次请求拦截，且文件依然保留在服务器内存中，绝不写盘。
     """
-    file_info = DOWNLOAD_CACHE.get(download_id)
+    if not check_auth():
+        return "未认证，请先登录", 401
+        
+    with CACHE_LOCK:
+        file_info = DOWNLOAD_CACHE.get(download_id)
     if not file_info:
         return "该下载链接已失效或文件不存在，请重新提交解锁", 404
         
