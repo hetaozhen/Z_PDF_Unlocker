@@ -71,7 +71,7 @@ jobs:
 
       - name: Package Application
         run: |
-          pyinstaller --onefile --name=Z_PDF_Unlocker --add-data "templates;templates" --add-data "static;static" app.py
+          pyinstaller --onefile --name=Z_PDF_Unlocker --icon="static/favicon.ico" --add-data "templates;templates" --add-data "static;static" app.py
 
       - name: Create GitHub Release and Upload Asset
         uses: softprops/action-gh-release@v2
