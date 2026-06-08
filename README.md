@@ -14,16 +14,7 @@
    * 支持拖拽（Drag & Drop）或点击按钮上传：**单个文件**、**多个文件**、或**整个文件夹**。
    * 前端会自动深度遍历文件夹，**只提取并上传 `.pdf` 格式文件**，自动忽略并过滤掉其他任何无用格式。
 
-3. **🚀 适配 IDM 等下载器拦截**：
-   * 采用 “先 POST 上传解密、后分配专属 GET 凭证流式下载” 的两阶段策略。
-   * 完美解决 Internet Download Manager (IDM) 等多线程下载工具二次请求导致接口报 `400 Bad Request` 的痛点。
-
-4. **🎨 极具现代感的 Web 界面**：
-   * 采用**磨砂毛玻璃质感 (Glassmorphism)** 视觉设计，搭配舒适的暗黑模式。
-   * 支持文件上传列表状态实时更新（待解密、解密中、成功 🔓、失败 ❌）。
-   * 包含操作日志控制台，实时展示每一份文件的解锁状态。
-
-5. **📦 双通道部署与分发**：
+3. **📦 双通道部署与分发**：
    * **本地直接启动**：提供 Windows `run.bat` 和 Linux/macOS `run.sh` 脚本，双击/运行即可一键搭建好本地环境并自动打开浏览器。
    * **Docker 极简部署**：支持一键运行容器，方便在群晖 NAS、家庭服务器、局域网等多种环境中共享。
 
@@ -98,26 +89,3 @@ docker run -d -p 53535:53535 --name z_pdf_unlocker_local -e LAN_PASSWORD=your_se
 docker compose up -d --build
 ```
 
----
-
-## ⚙️ 排除文件配置 (Exclusions)
-
-为了保证项目的整洁度与安全性，我们做好了完善的排除配置：
-
-1. **Git 排除 ([.gitignore](file:///e:/Z_PDF_Unlocker/.gitignore))**：
-   * 自动忽略 Python 的虚拟环境（`venv/`、`env/`）、打包产生的缓存中间件（`build/`）、生成的单个 Windows 绿色可执行程序（`dist/`）以及 `*.spec` 配置文件。
-   * 避免将本地测试的敏感 PDF 文件误上传到公开的代码仓库。
-
-2. **Docker 排除 ([.dockerignore](file:///e:/Z_PDF_Unlocker/.dockerignore))**：
-   * 过滤掉所有的 `.git` 元数据和 `.github` 工作流。
-   * **排除本地测试的所有 `*.pdf` 文件**，以防在构建公开镜像时，将您的私密 PDF 测试数据打包封存进镜像中，确保了镜像发布的安全性。
-
----
-
-## 🚀 CI/CD 自动构建与发布
-
-当您将代码推送至 GitHub 后：
-1. **Docker 镜像自动推送**：GitHub Actions 会自动编译 Docker 镜像，在通过安全验证后将其自动推送至您的 **Docker Hub** 账号中。
-2. **Windows 单文件版发布**：当您打上版本 Tag（如 `v1.0.0`）推送到 GitHub 时，Actions 会自动使用 PyInstaller 编译出一个免安装的 `Z_PDF_Unlocker.exe` 单文件绿色版本，并自动为您创建 GitHub Release，将该 `.exe` 作为资产附件上传，供您及其他用户直接下载。
-
-> 具体的 GitHub 与 Docker Hub 的对接配置步骤，请参阅专用的 [对接部署指南](file:///e:/Z_PDF_Unlocker/INTEGRATION_GUIDE.md)。
