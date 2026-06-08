@@ -16,7 +16,7 @@ if %errorlevel% neq 0 (
 
 echo.
 echo Packaging application (this may take a minute or two)...
-pyinstaller --onefile --name=Z_PDF_Unlocker --icon="E:\newbee\Desktop\pdfprint\pdf_filetype_icon_227891.ico" --add-data "templates;templates" --add-data "static;static" app.py
+pyinstaller --onefile --name=Z_PDF_Unlocker --icon="static\favicon.ico" --add-data "templates;templates" --add-data "static;static" app.py
 
 if %errorlevel% equ 0 (
     echo.
