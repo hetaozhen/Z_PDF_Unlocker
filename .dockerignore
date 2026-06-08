@@ -1,0 +1,35 @@
+# Ignore git metadata
+.git
+.github
+
+# Ignore python virtual environments and dependencies
+venv/
+env/
+.venv/
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+
+# Ignore PyInstaller build files and outputs
+build/
+dist/
+*.spec
+
+# Ignore local PDF files (Ensures private testing PDFs are not baked into the public Docker image!)
+*.pdf
+
+# Ignore installer and compilation scripts
+build.bat
+setup.sh
+run.bat
+run.sh
+
+# Ignore documentation not needed inside the container
+INTEGRATION_GUIDE.md
+README.md
+
+# Ignore OS-specific files
+.DS_Store
+Thumbs.db
+Desktop.ini
