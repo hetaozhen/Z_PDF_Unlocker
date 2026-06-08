@@ -1,72 +1,120 @@
-# Z_PDF_Unlocker - GitHub & Docker Hub 对接部署指南
+# Z_PDF_Unlocker - 综合部署与 GitHub / Docker Hub 对接指南
 
 为了实现代码提交后**自动构建 Docker 镜像并推送至 Docker Hub**，以及在发布新版本标签（Tag）时**自动编译生成 Windows 单文件绿色版 EXE 并创建 GitHub Release**，我们为您配置了完整的 GitHub Actions 工作流。
 
-以下是为您准备的一键对接配置步骤：
+同时，为了方便您在本地、云服务器（如 CentOS）等不同环境下灵活部署，以下是为您整理的详细 Docker 部署指南与对接步骤。
 
 ---
 
-## 1. 准备工作
+## 1. Docker 部署指南 (Docker Deployment Guide)
 
-### A. 获取 Docker Hub 访问令牌 (Personal Access Token)
-为了让 GitHub Actions 有权限推送镜像，不建议直接使用 Docker Hub 的登录密码，而是建议使用安全性更高的 Token：
-1. 登录 [Docker Hub](https://hub.docker.com/)。
-2. 点击右上角头像，选择 **Account Settings** (账号设置)。
-3. 在左侧菜单栏选择 **Security** -> **Personal Access Tokens** (个人访问令牌)。
-4. 点击 **New Access Token**，填写描述（例如 `github-actions-token`），权限选择 **Read & Write** (读写权限)，然后点击 **Generate**。
-5. **复制生成的 Token 字符串**（注意：它只会出现一次，关闭窗口后将无法再次查看）。
+项目已提供完整的 Docker 支持，您可以通过以下两种方式进行容器化部署：
 
----
+### 方式一：从 Docker Hub 拉取预构建镜像部署（推荐，适用于 CentOS 等服务器）
+这种方式**不需要**您在服务器上克隆源码或复制 `Dockerfile`，直接拉取我们在 Docker Hub 编译好的公共镜像即可，适合极速部署。
 
-## 2. 在 GitHub 仓库中配置 Secrets
-
-您需要将您的 Docker Hub 账号及刚刚生成的 Token 保存到 GitHub 的加密 Secrets 中：
-1. 打开您的 GitHub 仓库页面。
-2. 点击顶部的 **Settings** (设置) 选项卡。
-3. 在左侧菜单栏找到 **Security**，点击展开 **Secrets and variables** -> **Actions**。
-4. 在 **Repository secrets** 区域，点击 **New repository secret** 按钮，分别添加以下两个机密：
-
-| 秘密名称 (Secret Name) | 填入的值 (Secret Value) | 说明 |
-| :--- | :--- | :--- |
-| `DOCKER_USERNAME` | `您的 Docker Hub 用户名` | 例如 `newbee` |
-| `DOCKER_TOKEN` | `刚刚复制的 Docker Hub Access Token` | 用于安全登录 Docker Hub 的令牌 |
-
-> [!NOTE]
-> 编译 Windows 可执行程序并自动创建 Release 所需的 `GITHUB_TOKEN` 是由 GitHub 内部自动注入的，**无需**您手动创建或配置。
-
----
-
-## 3. 工作流运行触发逻辑
-
-您在工作区中看到的 `.github/workflows/deploy.yml` 脚本会自动根据不同的代码提交动作执行不同的构建逻辑：
-
-### 流程一：日常开发提交 (Push to `main` branch)
-* **动作**：向 `main` 分支进行 `git push` 或合并 PR。
-* **效果**：自动构建 Docker 镜像，并推送到 Docker Hub 仓库，标签为 `latest`。
-  * 例如：`docker pull 您的用户名/z-pdf-unlocker:latest`
-
-### 流程二：发布版本版本标签 (Push tag `v*`)
-* **动作**：在本地给代码打上符合 `v*` 规则的版本标签并推送到 GitHub。
-  ```bash
-  git tag v1.0.0
-  git push origin v1.0.0
-  ```
-* **效果**（自动双重构建流程）：
-  1. **构建 Docker 镜像**：自动以 `v1.0.0` 和 `1.0` 等版本号命名标签，并推送至 Docker Hub。
-  2. **构建 Windows 可执行程序**：在 GitHub 的 Windows 虚拟运行环境中，使用 PyInstaller 编译生成 `Z_PDF_Unlocker.exe` 单文件绿色版本。
-  3. **自动发布 Release**：编译完成后，GitHub Actions 会在您的仓库中自动新建一个名为 `Z_PDF_Unlocker Release v1.0.0` 的 **Release 版本发布页面**，并将编译好的 `Z_PDF_Unlocker.exe` 自动上传为该 Release 的下载附件，供所有人直接下载使用！
-
----
-
-## 4. 远程拉取与部署说明
-
-对接成功后，您或您的局域网用户可以直接通过 Docker Hub 进行极简拉取部署：
-
+#### 1. 命令行一键运行
+直接运行以下命令（请将 `your_secure_password` 替换为您自定义的页面访问密码）：
 ```bash
-# 1. 从您的 Docker Hub 仓库拉取最新镜像
-docker pull 您的用户名/z-pdf-unlocker:latest
-
-# 2. 启动容器运行解密服务 (映射 53535 端口)
-docker run -d -p 53535:53535 --name z_pdf_unlocker 您的用户名/z-pdf-unlocker:latest
+docker run -d \
+  -p 53535:53535 \
+  --name z_pdf_unlocker \
+  -e TZ=Asia/Shanghai \
+  -e LAN_PASSWORD=your_secure_password \
+  hetaozhen/z-pdf-unlocker:latest
 ```
-此时，镜像会以默认的安全局域网共享模式运行，在局域网内任意手机或电脑浏览器输入 `http://您的主机IP:53535` 即可打开访问验证页面，输入密码后便可流畅使用。
+
+#### 2. 使用 Docker Compose 运行（推荐）
+在服务器上新建任意目录，创建一个 [docker-compose.yml](file:///e:/Z_PDF_Unlocker/docker-compose.yml) 文件（内容如下）：
+```yaml
+version: '3.8'
+
+services:
+  pdf-unlocker:
+    image: hetaozhen/z-pdf-unlocker:latest
+    container_name: z_pdf_unlocker
+    ports:
+      - "53535:53535"
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+      - LAN_PASSWORD=your_secure_password # 设置您的页面访问密码
+```
+在该目录下执行以下命令即可启动：
+```bash
+docker compose up -d
+```
+
+---
+
+### 方式二：本地自行构建并部署（适用于二次开发与本地调试）
+如果您修改了本地代码，想要在本地通过 `Dockerfile` 打包成专属的容器进行测试：
+
+#### 1. 命令行本地构建并运行
+首先确保终端路径在项目根目录下（包含 `Dockerfile`）：
+```bash
+# 1. 本地构建 Docker 镜像
+docker build -t z-pdf-unlocker:local .
+
+# 2. 运行本地镜像（可通过 -e 注入自定义环境变量）
+docker run -d \
+  -p 53535:53535 \
+  --name z_pdf_unlocker_local \
+  -e LAN_PASSWORD=your_secure_password \
+  z-pdf-unlocker:local
+```
+
+#### 2. 使用 Docker Compose 本地构建运行
+如果您希望使用 `docker-compose` 指令直接在本地实时构建并运行，只需将 `docker-compose.yml` 中的 `image:` 替换为 `build:` 指向当前目录即可：
+```yaml
+version: '3.8'
+
+services:
+  pdf-unlocker:
+    build: . # 修改为使用本地 Dockerfile 进行构建
+    container_name: z_pdf_unlocker
+    ports:
+      - "53535:53535"
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Shanghai
+      - LAN_PASSWORD=your_secure_password
+```
+运行构建并启动：
+```bash
+docker compose up -d --build
+```
+
+---
+
+## 2. GitHub & Docker Hub 自动化对接配置
+
+### 步骤 A：获取 Docker Hub 访问令牌
+1. 登录 [Docker Hub](https://hub.docker.com/)。
+2. 点击右上角头像，选择 **Account Settings** (账号设置) -> **Security**。
+3. 点击 **New Access Token**，填写描述（如 `github-actions`），权限选择 **Read & Write**，点击 **Generate**。
+4. **复制生成的 Token 字符串**。
+
+### 步骤 B：在 GitHub 仓库中配置 Secrets
+1. 打开您的 GitHub 仓库页面，进入 **Settings** -> **Secrets and variables** -> **Actions**。
+2. 点击 **New repository secret**，分别添加以下两个机密：
+
+| 秘密名称 (Secret Name) | 填入的值 (Secret Value) |
+| :--- | :--- |
+| `DOCKER_USERNAME` | `您的 Docker Hub 用户名` (例如 `hetaozhen`) |
+| `DOCKER_TOKEN` | `在步骤 A 中复制的 Access Token` |
+
+---
+
+## 3. 自动化流水线触发逻辑
+
+配置好 Secrets 并提交 [.github/workflows/deploy.yml](file:///e:/Z_PDF_Unlocker/.github/workflows/deploy.yml) 工作流后：
+
+1. **日常代码推送 (Push to `main`)**：
+   * 自动构建 Docker 镜像并推送至 Docker Hub，标记为 `latest` 标签。
+   * 服务器上运行 `docker compose pull` 即可无缝拉取最新版部署。
+
+2. **版本发布标签 (Push tag `v*`)**：
+   * 自动编译生成 Windows 单文件绿色版 `Z_PDF_Unlocker.exe`。
+   * 自动在 GitHub 上创建 Release，并将 `.exe` 附件上传，供直接下载。
+   * 同时推送带版本号的镜像至 Docker Hub（如 `hetaozhen/z-pdf-unlocker:v1.0.1`）。

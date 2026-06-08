@@ -56,22 +56,46 @@ python app.py
 
 ## 🐳 Docker 部署指南
 
-项目提供了完整的容器化支持，可以使用 Docker 极速构建与启动。
+项目提供了完整的容器化部署支持，您可以选择以下两种方式之一运行：
 
-### 1. 本地构建并运行
+### 方式一：从 Docker Hub 拉取预构建镜像部署（推荐，适用于 CentOS 等服务器）
+这种方式最省时，不需要克隆源码或在服务器本地构建。
+
+#### 1. 使用 docker run 运行
 ```bash
-# 构建镜像
-docker build -t z-pdf-unlocker .
-
-# 启动容器（将容器内 53535 端口映射至宿主机 53535 端口）
-docker run -d -p 53535:53535 --name pdf_unlocker z-pdf-unlocker
+docker run -d \
+  -p 53535:53535 \
+  --name z_pdf_unlocker \
+  -e TZ=Asia/Shanghai \
+  -e LAN_PASSWORD=your_secure_password \
+  hetaozhen/z-pdf-unlocker:latest
 ```
-运行后，在浏览器访问 `http://localhost:53535` 即可使用。
 
-### 2. 通过 Docker Compose 部署
-我们同样配置了 [docker-compose.yml](file:///e:/Z_PDF_Unlocker/docker-compose.yml)：
+#### 2. 使用 Docker Compose 运行
+直接下载或复制 [docker-compose.yml](file:///e:/Z_PDF_Unlocker/docker-compose.yml)，然后在其目录下执行：
 ```bash
-docker-compose up -d
+docker compose up -d
+```
+
+---
+
+### 方式二：本地自行构建部署（适用于二次开发）
+如果您修改了本地代码，想在本地打包镜像进行测试：
+
+#### 1. 命令行构建运行
+在项目根目录下执行：
+```bash
+# 构建本地镜像
+docker build -t z-pdf-unlocker:local .
+
+# 运行本地镜像
+docker run -d -p 53535:53535 --name z_pdf_unlocker_local -e LAN_PASSWORD=your_secure_password z-pdf-unlocker:local
+```
+
+#### 2. 使用 Docker Compose 本地构建运行
+将 `docker-compose.yml` 中的 `image:` 换成 `build: .`，然后运行：
+```bash
+docker compose up -d --build
 ```
 
 ---
