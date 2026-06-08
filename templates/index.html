@@ -1,0 +1,134 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z_PDF_Unlocker - 本地安全解锁</title>
+    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="/static/lucide.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <div class="background-decorations">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- 头部 -->
+        <header class="app-header">
+            <div class="logo-area">
+                <div class="logo-icon-wrapper">
+                    <i data-lucide="unlock" class="logo-icon animate-pulse"></i>
+                </div>
+                <div>
+                    <div style="display: flex; align-items: center; gap: 10px;">
+                        <h1 style="margin: 0;">Z_PDF_Unlocker</h1>
+                        {% if mode == "LAN" %}
+                            <span class="mode-badge mode-lan"><i data-lucide="share-2" style="width:12px;height:12px;"></i>局域网模式</span>
+                        {% else %}
+                            <span class="mode-badge mode-local"><i data-lucide="laptop" style="width:12px;height:12px;"></i>本机模式</span>
+                        {% endif %}
+                    </div>
+                    <p class="subtitle">安全、极速、无任何大小限制的本地解密服务</p>
+                </div>
+            </div>
+            {% if is_local %}
+            <button class="btn btn-danger btn-sm" id="btn-shutdown" title="关闭服务并关闭页面">
+                <i data-lucide="power"></i>关闭服务
+            </button>
+            {% endif %}
+        </header>
+
+        <!-- 主体面板 -->
+        <main class="main-panel">
+            <!-- 拖拽上传区域 -->
+            <section class="upload-dropzone glass-panel" id="dropzone">
+                <i data-lucide="upload-cloud" class="upload-icon"></i>
+                <h3>拖拽文件或文件夹到此处</h3>
+                <p>支持拖入单个、多个 PDF 或整个目录，非 PDF 格式将被自动过滤</p>
+                
+                <div class="upload-buttons-row">
+                    <button class="btn btn-secondary btn-sm" id="btn-select-single">
+                        <i data-lucide="file"></i>选择文件
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="btn-select-multiple">
+                        <i data-lucide="files"></i>选择多个
+                    </button>
+                    <button class="btn btn-secondary btn-sm" id="btn-select-directory">
+                        <i data-lucide="folder-open"></i>选择文件夹
+                    </button>
+                </div>
+
+                <!-- 隐藏的真实文件输入框 -->
+                <input type="file" id="input-single" accept=".pdf" class="hidden">
+                <input type="file" id="input-multiple" accept=".pdf" multiple class="hidden">
+                <input type="file" id="input-directory" webkitdirectory directory multiple class="hidden">
+            </section>
+
+            <!-- 待解密文件队列 -->
+            <section class="files-card glass-panel hidden" id="queue-card">
+                <div class="card-header">
+                    <h2>
+                        <i data-lucide="list-ordered" class="header-icon"></i>
+                        待解密队列
+                    </h2>
+                    <span class="file-count-badge" id="file-count">0 个 PDF</span>
+                </div>
+
+                <div class="file-list-container">
+                    <ul class="file-list" id="file-list">
+                        <!-- 动态载入选择的 PDF -->
+                    </ul>
+                </div>
+                
+                <div class="filter-warning hidden" id="filter-warning">
+                    <i data-lucide="info"></i>
+                    <span id="filter-warning-text">已自动忽略非 PDF 文件</span>
+                </div>
+            </section>
+
+            <!-- 密码输入与一键操作 -->
+            <section class="control-card glass-panel">
+                <div class="input-group">
+                    <label for="password-input">
+                        <i data-lucide="key-round"></i>
+                        输入解密密码
+                    </label>
+                    <div class="password-wrapper">
+                        <input type="password" id="password-input" placeholder="请输入解锁 PDF 的密码..." autocomplete="new-password">
+                        <button type="button" id="toggle-password" title="显示/隐藏密码">
+                            <i data-lucide="eye" id="eye-icon"></i>
+                        </button>
+                    </div>
+                </div>
+                <div class="action-buttons">
+                    <button id="btn-unlock-submit" class="btn btn-primary btn-glow" disabled>
+                        <i data-lucide="unlock-keyhole"></i>
+                        一键解密并下载
+                    </button>
+                    <button id="btn-clear" class="btn btn-secondary" style="flex: 0 0 auto;">
+                        <i data-lucide="trash-2"></i>
+                        清空队列
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- 页脚 -->
+        <footer class="app-footer">
+            <p>Z_PDF_Unlocker v2.0.0 &bull; 纯本地内存解密，保护文件安全与隐私</p>
+        </footer>
+    </div>
+
+    <!-- Toast 提示容器 -->
+    <div class="toast-container" id="toast-container"></div>
+
+    <script src="/static/app.js"></script>
+</body>
+</html>

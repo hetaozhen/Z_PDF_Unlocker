@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Z_PDF_Unlocker - 访问验证</title>
+    <link rel="shortcut icon" href="/static/favicon.ico" type="image/x-icon">
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=Noto+Sans+SC:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <!-- Lucide Icons -->
+    <script src="/static/lucide.min.js"></script>
+    <link rel="stylesheet" href="/static/style.css">
+    <style>
+        .login-container {
+            width: 100%;
+            max-width: 420px;
+            margin: auto;
+            animation: fade-in-up 0.6s ease-out;
+        }
+        .login-card {
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+            text-align: center;
+            padding: 36px 30px;
+        }
+        .login-header {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 8px;
+        }
+        .login-header i {
+            width: 48px;
+            height: 48px;
+            color: var(--accent-cyan);
+            margin-bottom: 8px;
+            filter: drop-shadow(0 0 10px rgba(6, 182, 212, 0.4));
+        }
+        .error-message {
+            color: var(--danger);
+            font-size: 13px;
+            background: var(--danger-bg);
+            border: 1px solid var(--danger-border);
+            padding: 10px 14px;
+            border-radius: 10px;
+            display: none;
+            text-align: left;
+        }
+    </style>
+</head>
+<body>
+    <div class="background-decorations">
+        <div class="blob blob-1"></div>
+        <div class="blob blob-2"></div>
+    </div>
+
+    <div class="login-container">
+        <div class="login-card glass-panel">
+            <div class="login-header">
+                <i data-lucide="shield-alert"></i>
+                <h2>局域网访问验证</h2>
+                <p style="color: var(--text-secondary); font-size: 13px;">该服务已开启局域网共享，请输入访问密码以继续。</p>
+            </div>
+            
+            <div class="error-message" id="error-box"></div>
+
+            <div class="input-group" style="text-align: left;">
+                <label for="lan-password">
+                    <i data-lucide="key-round"></i>访问密码
+                </label>
+                <div class="password-wrapper">
+                    <input type="password" id="lan-password" placeholder="请输入局域网访问密码..." autofocus>
+                </div>
+            </div>
+
+            <button id="btn-login" class="btn btn-primary btn-glow">
+                <i data-lucide="key-round"></i>
+                验证并进入
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // 初始化 Lucide 图标
+        lucide.createIcons();
+
+        const passwordInput = document.getElementById('lan-password');
+        const loginBtn = document.getElementById('btn-login');
+        const errorBox = document.getElementById('error-box');
+
+        async function doLogin() {
+            const password = passwordInput.value.trim();
+            if (!password) {
+                showError('请输入访问密码！');
+                return;
+            }
+
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '验证中...';
+            errorBox.style.display = 'none';
+
+            try {
+                const response = await fetch('/api/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ password })
+                });
+                const data = await response.json();
+                if (response.ok && data.success) {
+                    window.location.reload();
+                } else {
+                    showError(data.error || '验证失败，密码错误。');
+                }
+            } catch (err) {
+                showError('无法连接到服务，请检查网络。');
+            } finally {
+                loginBtn.disabled = false;
+                loginBtn.innerHTML = '<i data-lucide="key-round"></i>验证并进入';
+                lucide.createIcons();
+            }
+        }
+
+        function showError(msg) {
+            errorBox.textContent = msg;
+            errorBox.style.display = 'block';
+            passwordInput.focus();
+        }
+
+        loginBtn.addEventListener('click', doLogin);
+        passwordInput.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                doLogin();
+            }
+        });
+    </script>
+</body>
+</html>
