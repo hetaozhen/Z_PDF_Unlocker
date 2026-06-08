@@ -65,8 +65,10 @@ template_dir = get_resource_path('templates')
 app = Flask(__name__, static_folder=static_dir, template_folder=template_dir)
 app.secret_key = uuid.uuid4().hex
 
-# 局域网访问密码 (仅在 Option 2 局域网共享模式下强制设置)
-LAN_PASSWORD = None
+# 局域网访问密码 (优先从环境变量获取，便于 Docker 部署时进行安全保护)
+LAN_PASSWORD = os.getenv('LAN_PASSWORD')
+if not LAN_PASSWORD:
+    LAN_PASSWORD = None
 FAILED_ATTEMPTS = 0
 LOCK_UNTIL = 0.0
 
@@ -444,15 +446,29 @@ if __name__ == '__main__':
     # 1. 确定可用的运行端口
     port = args.port
     if port is None:
-        port = determine_port(53535)
-    else:
-        if is_port_in_use(port):
-            print(f"[警告] 指定端口 {port} 似乎已被占用，运行可能会报错。")
+        env_port = os.getenv('PORT')
+        if env_port:
+            try:
+                port = int(env_port)
+            except ValueError:
+                pass
+        if port is None:
+            port = determine_port(53535)
+    
+    if is_port_in_use(port):
+        print(f"[警告] 指定端口 {port} 似乎已被占用，运行可能会报错。")
             
     # 2. 确定绑定 Host 模式
     host = args.host
     if host is None:
-        host = select_host_mode(timeout=5)
+        host = os.getenv('HOST')
+        if not host:
+            host = select_host_mode(timeout=5)
+        else:
+            print(f"[状态] 从环境变量获取绑定 IP: {host}")
+    
+    if host == '0.0.0.0' and LAN_PASSWORD:
+        print(f"[安全] 已启用局域网共享模式，密码保护已激活。")
             
     # 3. 自动打开浏览器
     if not args.no_browser:

@@ -9,3 +9,4 @@ services:
     restart: unless-stopped
     environment:
       - TZ=Asia/Shanghai
+      - LAN_PASSWORD=your_secure_password # 可选，局域网共享模式下的访问密码保护
